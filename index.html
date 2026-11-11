@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Avakian · Grupo Inmobiliario en Tijuana</title>
+<meta name="description" content="Casas, departamentos y desarrollos en Tijuana, Baja California. Encuentra tu propiedad en el mapa.">
+<meta name="theme-color" content="#222027">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/instrument-serif-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/archivo-latin-standard-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="vendor/maplibre-gl.css">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body class="is-loading">
+
+<!-- ====== INTRO ====== -->
+<div class="intro" id="intro" aria-hidden="true">
+  <div class="intro__inner">
+    <p class="intro__name" aria-label="Avakian"><span style="--i:0">A</span><span style="--i:1">V</span><span style="--i:2">A</span><span style="--i:3">K</span><span style="--i:4">I</span><span style="--i:5">A</span><span style="--i:6">N</span></p>
+    <p class="intro__sub">Grupo Inmobiliario</p>
+    <p class="intro__coords">32.5149° N &nbsp;·&nbsp; 117.0382° O</p>
+  </div>
+  <div class="intro__bar"><i></i></div>
+</div>
+
+<!-- ====== NAV ====== -->
+<header class="nav" id="nav">
+  <a class="brand" href="#inicio" aria-label="Avakian Grupo Inmobiliario, inicio">
+    <span class="brand__text"><b data-cfg="nombre">Avakian</b><small data-cfg="eslogan">Grupo Inmobiliario</small></span>
+  </a>
+  <nav class="nav__links" id="navLinks">
+    <a href="#destacadas">Destacadas</a>
+    <a href="#mapa">Mapa</a>
+    <a href="#desarrollos">Desarrollos</a>
+    <a href="#servicios">Servicios</a>
+    <a class="nav__cta" href="#contacto">Contacto</a>
+  </nav>
+  <button class="nav__burger" id="burger" aria-label="Abrir menú" aria-expanded="false"><i></i><i></i></button>
+</header>
+
+<main>
+<!-- ====== HERO ====== -->
+<section class="hero" id="inicio">
+  <div class="hero__sky" id="heroMap"></div>
+  <video class="hero__video" id="heroVideo" muted loop playsinline hidden></video>
+  <div class="hero__shade"></div>
+
+  <div class="hero__content">
+    <p class="eyebrow hero__eyebrow"><span>Tijuana, Baja California</span><span class="hero__alt" id="heroAlt">Altitud 12,000 m</span></p>
+    <h1 class="hero__title">
+      <span class="line"><span>Conoce Tijuana</span></span>
+      <span class="line"><span>desde <em>otro nivel.</em></span></span>
+    </h1>
+
+    <form class="search" id="heroSearch">
+      <div class="search__tabs" role="tablist">
+        <button type="button" class="is-on" data-op="">Todo</button>
+        <button type="button" data-op="venta">Comprar</button>
+        <button type="button" data-op="renta">Rentar</button>
+      </div>
+      <div class="search__row">
+        <label><span>Tipo</span>
+          <select id="hsTipo"><option value="">Cualquiera</option></select>
+        </label>
+        <label class="grow"><span>Zona o palabra clave</span>
+          <input id="hsZona" list="zonas" placeholder="Zona Río, Playas, alberca…" autocomplete="off">
+          <datalist id="zonas"></datalist>
+        </label>
+        <button class="btn btn--accent" type="submit">Buscar en el mapa</button>
+      </div>
+    </form>
+  </div>
+
+  <a class="hero__scroll" href="#destacadas"><span>Desliza</span><i></i></a>
+</section>
+
+<!-- ====== DESTACADAS ====== -->
+<section class="section" id="destacadas">
+  <div class="section__head" data-reveal>
+    <p class="eyebrow"><b>01</b> Selección destacada</p>
+    <h2>Propiedades que <em>vale la pena</em> conocer.</h2>
+    <div class="rail-ctrl"><button id="railPrev" aria-label="Anterior">←</button><button id="railNext" aria-label="Siguiente">→</button></div>
+  </div>
+  <div class="rail" id="rail"></div>
+</section>
+
+<!-- ====== MAPA ====== -->
+<section class="mapsec" id="mapa">
+  <div class="mapsec__list">
+    <div class="mapsec__head">
+      <p class="eyebrow"><b>02</b> Explora en el mapa</p>
+      <h2>Encuentra tu lugar <em>en la ciudad.</em></h2>
+      <div class="filters" id="filters">
+        <div class="seg" id="fOp">
+          <button class="is-on" data-v="">Todas</button><button data-v="venta">Venta</button><button data-v="renta">Renta</button>
+        </div>
+        <select id="fTipo" aria-label="Tipo"><option value="">Tipo</option></select>
+        <select id="fRec" aria-label="Recámaras"><option value="0">Recámaras</option><option value="1">1+</option><option value="2">2+</option><option value="3">3+</option><option value="4">4+</option></select>
+        <select id="fSort" aria-label="Ordenar"><option value="">Ordenar</option><option value="asc">Precio: menor a mayor</option><option value="desc">Precio: mayor a menor</option></select>
+        <input id="fQ" type="search" placeholder="Buscar zona o palabra…" aria-label="Buscar">
+      </div>
+      <p class="count" id="count"></p>
+    </div>
+    <div class="cards" id="cards"></div>
+  </div>
+  <div class="mapsec__map">
+    <div id="map"></div>
+    <div class="maptoggle" id="mapToggle"><button class="is-on" data-s="calle">Mapa</button><button data-s="sat">Satélite</button></div>
+  </div>
+</section>
+
+<!-- ====== DESARROLLOS ====== -->
+<section class="section section--dark" id="desarrollos">
+  <div class="section__head" data-reveal>
+    <p class="eyebrow"><b>03</b> Desarrollos</p>
+    <h2>Lo que se está <em>construyendo</em> en Tijuana.</h2>
+    <p class="lede">Preventas, obra en proceso y proyectos listos para entrega. Sigue el avance de cada desarrollo.</p>
+  </div>
+  <div class="builds" id="builds"></div>
+</section>
+
+<!-- ====== SERVICIOS ====== -->
+<section class="section" id="servicios">
+  <div class="section__head" data-reveal>
+    <p class="eyebrow"><b>04</b> Servicios</p>
+    <h2>Acompañamiento <em>de principio a fin.</em></h2>
+  </div>
+  <div class="services">
+    <article data-reveal><span>A</span><h3>Compra</h3><p>Te ayudamos a encontrar la propiedad correcta, negociar el precio y cerrar con certeza jurídica, sin sorpresas.</p></article>
+    <article data-reveal><span>B</span><h3>Venta</h3><p>Valuación, fotografía profesional y difusión para que tu propiedad llegue al comprador indicado.</p></article>
+    <article data-reveal><span>C</span><h3>Renta</h3><p>Promoción, filtro de inquilinos y contratos claros para propietarios y para quienes buscan dónde vivir.</p></article>
+    <article data-reveal><span>D</span><h3>Inversión</h3><p>Preventas y desarrollos con potencial de plusvalía en las zonas con mayor crecimiento de la ciudad.</p></article>
+  </div>
+</section>
+
+<!-- ====== CONTACTO ====== -->
+<section class="section contact" id="contacto">
+  <div class="contact__copy" data-reveal>
+    <p class="eyebrow"><b>05</b> Contacto</p>
+    <h2>Hablemos de tu <em>próxima propiedad.</em></h2>
+    <ul class="contact__data" id="contactData"></ul>
+  </div>
+  <form class="contact__form" id="contactForm" data-reveal>
+    <label><span>Nombre</span><input name="nombre" required autocomplete="name"></label>
+    <label><span>Teléfono</span><input name="telefono" type="tel" autocomplete="tel"></label>
+    <label><span>Me interesa</span>
+      <select name="interes"><option>Comprar</option><option>Rentar</option><option>Vender mi propiedad</option><option>Invertir en un desarrollo</option></select>
+    </label>
+    <label><span>Mensaje</span><textarea name="mensaje" rows="4" id="cfMsg"></textarea></label>
+    <button class="btn btn--accent" type="submit" id="cfBtn">Enviar mensaje</button>
+    <p class="contact__note" id="cfNote" role="status"></p>
+  </form>
+</section>
+</main>
+
+<footer class="footer">
+  <div class="brand">
+    <span class="brand__text"><b data-cfg="nombre">Avakian</b><small data-cfg="eslogan">Grupo Inmobiliario</small></span>
+  </div>
+  <p data-cfg="direccion">Tijuana, Baja California</p>
+  <p class="footer__legal">© <span id="year"></span> <span data-cfg="nombre">Avakian</span> <span data-cfg="eslogan">Grupo Inmobiliario</span>. Precios y disponibilidad sujetos a cambio sin previo aviso.</p>
+</footer>
+
+<!-- ====== FICHA ====== -->
+<dialog class="sheet" id="sheet" aria-label="Detalle de la propiedad">
+  <button class="sheet__close" id="sheetClose" aria-label="Cerrar">✕</button>
+  <div class="sheet__body" id="sheetBody"></div>
+</dialog>
+
+<div class="dropzone" id="dropzone"><p>Suelta el Excel para ver una vista previa</p></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="vendor/maplibre-gl.js"></script>
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
