@@ -125,6 +125,8 @@ function applyConfig() {
     c.horario && ['Horario', `<span>${esc(c.horario)}</span>`]
   ].filter(Boolean);
   const hv = c['video de portada'];
+  const hi = list(c['imagenes de portada']).map(imgSrc);
+  $$('#heroScenes .scene img').forEach((im, i) => { if (hi[i]) im.src = hi[i]; });
   if (hv && hv !== heroVideoSet) { heroVideoSet = hv; useHeroVideo(/^https?:\/\//i.test(hv) || hv.includes('/') ? hv : 'assets/' + encodeURI(hv)); }
   $('#contactData').innerHTML = items.map(([k, v]) => `<li><small>${k}</small>${v}</li>`).join('');
 }
@@ -401,33 +403,90 @@ addEventListener('drop', async e => {
 
 function renderAll() { applyConfig(); fillOptions(); renderFeatured(); renderBuilds(); renderCards(); if (map) syncMarkers(filtered()); }
 
-/* ---------- intro: vuelo sobre Tijuana ---------- */
+/* ---------- portada por escenas ---------- */
+const SCENES = [
+  { eyebrow: 'Tijuana, Baja California', l1: 'Conoce Tijuana', l2: 'desde <em>otro nivel.</em>', ms: 13000 },
+  { eyebrow: 'Torres y desarrollos', l1: 'El nuevo horizonte', l2: 'de <em>Tijuana.</em>', ms: 8000 },
+  { eyebrow: 'Preventas e inversión', l1: 'Invierte donde', l2: 'la ciudad <em>crece.</em>', ms: 8000 }
+];
+let sceneIdx = 0, sceneTimer, scenesOn = false, heroInView = true, heroMapCtl = () => {}, swapT;
+function scheduleScene() {
+  clearTimeout(sceneTimer);
+  const dots = $('#heroDots'); dots.classList.remove('is-run');
+  if (!scenesOn || reduced || !heroInView || document.hidden) return;
+  dots.style.setProperty('--d', SCENES[sceneIdx].ms + 'ms');
+  void dots.offsetWidth; dots.classList.add('is-run');
+  sceneTimer = setTimeout(() => setScene((sceneIdx + 1) % SCENES.length), SCENES[sceneIdx].ms);
+}
+function setScene(i) {
+  if (i === sceneIdx) return;
+  const els = $$('#heroScenes .scene'), prev = els[sceneIdx], next = els[i], sc = SCENES[i];
+  els.forEach(e => e.classList.remove('is-prev'));
+  prev.classList.remove('is-on'); prev.classList.add('is-prev'); next.classList.add('is-on');
+  setTimeout(() => { if (!prev.classList.contains('is-on')) prev.classList.remove('is-prev'); }, 1350);
+  sceneIdx = i;
+  $$('#heroDots button').forEach(b => b.classList.toggle('is-on', +b.dataset.i === i));
+  $('#heroAlt').style.visibility = i === 0 ? '' : 'hidden';
+  const title = $('#heroTitle'), spans = $$('.line>span', title);
+  clearTimeout(swapT); title.classList.remove('is-pre'); title.classList.add('is-out');
+  swapT = setTimeout(() => {
+    spans[0].innerHTML = sc.l1; spans[1].innerHTML = sc.l2; $('#heroEyebrow').textContent = sc.eyebrow;
+    title.classList.remove('is-out'); title.classList.add('is-pre'); void title.offsetWidth; title.classList.remove('is-pre');
+  }, reduced ? 0 : 520);
+  heroMapCtl(); scheduleScene();
+}
+$('#heroDots').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setScene(+b.dataset.i); });
+document.addEventListener('visibilitychange', scheduleScene);
+new IntersectionObserver(([en]) => { heroInView = en.isIntersecting; heroMapCtl(); scheduleScene(); }, { threshold: 0.25 }).observe($('#inicio'));
+
+/* ---------- intro: el logo se abre y la cámara baja sobre Tijuana ---------- */
 function intro() {
-  const bar = $('.intro__bar i'), alt = $('#heroAlt');
-  let hero, done = false, t0 = performance.now();
-  const MIN = reduced ? 300 : 2400, MAX = 6500;
+  const introEl = $('#intro'), bar = $('.intro__bar i'), alt = $('#heroAlt'), cut = $('#introCut'), fill = $('#introFill');
+  let hero, done = false, started = false, flown = false, orbiting = false, t0 = performance.now();
+  const MIN = reduced ? 300 : 2300, MAX = 6500;
   const altitude = z => Math.round(40075016 * Math.cos(32.5 * Math.PI / 180) / Math.pow(2, z + 1) * 1.2 / 10) * 10;   // aprox. en metros
   const showAlt = () => { if (hero) alt.textContent = 'Altitud ' + altitude(hero.getZoom()).toLocaleString('es-MX') + ' m'; };
 
-  let orbiting = false, visible = true;
-  const orbit = () => {
-    if (!hero || reduced || !visible || orbiting) return;
-    orbiting = true;
-    hero.easeTo({ bearing: hero.getBearing() + 90, duration: 150000, easing: t => t, essential: true });
+  const canOrbit = () => hero && started && !reduced && heroInView && sceneIdx === 0;
+  const orbit = () => { if (!canOrbit() || orbiting) return; orbiting = true; hero.easeTo({ bearing: hero.getBearing() + 90, duration: 150000, easing: t => t, essential: true }); };
+  heroMapCtl = () => {
+    if (!hero || !started) return;
+    if (canOrbit()) return orbit();
+    if (!flown) { flown = true; hero.jumpTo(HERO_END); } else hero.stop();
+    orbiting = false;
   };
-  const start = () => {
-    if (done) return; done = true;
-    bar.style.width = '100%';
-    document.body.classList.remove('is-loading'); document.body.classList.add('is-ready');
-    onScroll();
-    if (!hero) return;
+  const fly = () => {
+    started = true; if (!hero) return;
     if (reduced) { hero.jumpTo(HERO_END); showAlt(); return; }
-    setTimeout(() => {
-      hero.flyTo({ ...HERO_END, duration: 9000, curve: 1.1, essential: true, easing: t => 1 - Math.pow(1 - t, 3) });
-      hero.once('moveend', () => { orbiting = false; orbit(); hero.on('moveend', () => { orbiting = false; orbit(); }); });
-    }, 500);
+    hero.flyTo({ ...HERO_END, duration: 9500, curve: 1.1, essential: true, easing: t => 1 - Math.pow(1 - t, 3) });
   };
-  const tryStart = () => setTimeout(start, Math.max(0, MIN - (performance.now() - t0)));
+  const ready = () => { document.body.classList.remove('is-loading'); document.body.classList.add('is-ready'); onScroll(); };
+  const finish = () => { introEl.classList.add('is-done'); scenesOn = true; scheduleScene(); };
+
+  const reveal = () => {
+    if (done) return; done = true; bar.style.width = '100%';
+    let ox, oy;
+    try { const r = cut.getExtentOfChar(1); ox = r.x + r.width / 2; oy = r.y + r.height * 0.42; } catch (e) { ox = null; }
+    if (reduced || ox == null || !isFinite(ox)) { ready(); fly(); finish(); return; }
+    // 1) las letras se vuelven ventana  2) la cámara atraviesa la «V»
+    introEl.classList.add('is-open');
+    const A = 520, B = 1650, s0 = performance.now(); let flew = false, shown = false;
+    const step = now => {
+      const t = now - s0, k = Math.min(1, t / A);
+      cut.setAttribute('fill-opacity', k); fill.style.opacity = 1 - k;
+      if (t >= A) {
+        if (!flew) { flew = true; fly(); }
+        const z = Math.min(1, (t - A) / B), sc = Math.pow(160, z * z);
+        cut.setAttribute('transform', `translate(${ox} ${oy}) scale(${sc}) translate(${-ox} ${-oy})`);
+        if (z > 0.5 && !shown) { shown = true; ready(); }
+        if (z > 0.8) introEl.style.opacity = 1 - (z - 0.8) / 0.2;
+        if (z >= 1) return finish();
+      }
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
+  const tryReveal = () => setTimeout(reveal, Math.max(0, MIN - (performance.now() - t0)));
 
   // Toma de dron propia: se activa con «Video de portada» en la hoja Configuración del Excel.
   useHeroVideo = src => {
@@ -440,13 +499,13 @@ function intro() {
     hero = new maplibregl.Map({ container: 'heroMap', style: SAT_STYLE, center: [-117.09, 32.47], zoom: 10.4, pitch: 0, bearing: 0,
       interactive: false, attributionControl: { compact: false }, maxPitch: 70, fadeDuration: 400 });
     hero.on('move', showAlt); showAlt();
-    hero.once('idle', tryStart);
-    new IntersectionObserver(([en]) => { visible = en.isIntersecting; if (!visible) { hero?.stop(); orbiting = false; } else if (done) orbit(); }).observe($('#inicio'));
-  } catch (e) { hero = null; alt.hidden = true; tryStart(); }
+    hero.once('idle', tryReveal);
+    hero.on('moveend', () => { if (!started) return; flown = true; orbiting = false; orbit(); });
+  } catch (e) { hero = null; alt.hidden = true; tryReveal(); }
 
   const tick = setInterval(() => { const p = Math.min(92, (performance.now() - t0) / MAX * 100); if (!done) bar.style.width = p + '%'; else clearInterval(tick); }, 120);
-  setTimeout(start, MAX);
-  $('#intro').addEventListener('click', start);
+  setTimeout(reveal, MAX);
+  introEl.addEventListener('click', reveal);
 }
 
 /* ---------- arranque ---------- */

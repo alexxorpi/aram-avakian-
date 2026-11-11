@@ -40,8 +40,13 @@ python3 -m http.server 8000
 
 ## Portada
 
-El inicio es un vuelo sobre imágenes satelitales reales de Tijuana. Si tienes una toma de dron,
-súbela a `assets/` y escribe su nombre en **Configuración → Video de portada**.
+1. **Intro:** el logo AVAKIAN aparece sobre carbón, sus letras se vuelven una ventana hacia la ciudad y la cámara atraviesa la «V».
+2. **Escena 1 · La ciudad:** vuelo sobre imágenes satelitales reales de Tijuana.
+3. **Escenas 2 y 3 · Torres e inversión:** fotos a pantalla completa con zoom lento. Las actuales son de muestra
+   (no son de Tijuana); cámbialas en **Configuración → Imágenes de portada** del Excel.
+
+Los titulares de cada escena están en `assets/app.js` (lista `SCENES`).
+Si tienes una toma de dron, súbela a `assets/` y escribe su nombre en **Configuración → Video de portada**.
 
 ## Créditos y licencias
 
