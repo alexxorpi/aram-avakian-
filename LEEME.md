@@ -42,8 +42,10 @@ python3 -m http.server 8000
 
 1. **Intro:** el logo AVAKIAN aparece sobre carbón, sus letras se vuelven una ventana hacia la ciudad y la cámara atraviesa la «V».
 2. **Escena 1 · La ciudad:** vuelo sobre imágenes satelitales reales de Tijuana.
-3. **Escenas 2 y 3 · Torres e inversión:** fotos a pantalla completa con zoom lento. Las actuales son de muestra
-   (no son de Tijuana); cámbialas en **Configuración → Imágenes de portada** del Excel.
+3. **Escenas 2 y 3 · Torres e inversión:** fotos reales de Tijuana a pantalla completa con zoom lento
+   (`imagenes/tijuana-skyline.jpg` y `imagenes/tijuana-agua-caliente.jpg`, de Urbaner44 en Wikimedia Commons,
+   licencia CC BY-SA 4.0: exige mantener el crédito visible, por eso aparece en la esquina de la portada).
+   Para usar fotos o renders propios, escríbelos en **Configuración → Imágenes de portada** del Excel; el crédito desaparece solo.
 
 Los titulares de cada escena están en `assets/app.js` (lista `SCENES`).
 Si tienes una toma de dron, súbela a `assets/` y escribe su nombre en **Configuración → Video de portada**.

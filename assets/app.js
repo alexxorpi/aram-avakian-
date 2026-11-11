@@ -126,7 +126,7 @@ function applyConfig() {
   ].filter(Boolean);
   const hv = c['video de portada'];
   const hi = list(c['imagenes de portada']).map(imgSrc);
-  $$('#heroScenes .scene img').forEach((im, i) => { if (hi[i]) im.src = hi[i]; });
+  $$('#heroScenes .scene img').forEach((im, i) => { if (hi[i]) { im.src = hi[i]; customHero = true; } });
   if (hv && hv !== heroVideoSet) { heroVideoSet = hv; useHeroVideo(/^https?:\/\//i.test(hv) || hv.includes('/') ? hv : 'assets/' + encodeURI(hv)); }
   $('#contactData').innerHTML = items.map(([k, v]) => `<li><small>${k}</small>${v}</li>`).join('');
 }
@@ -406,10 +406,10 @@ function renderAll() { applyConfig(); fillOptions(); renderFeatured(); renderBui
 /* ---------- portada por escenas ---------- */
 const SCENES = [
   { eyebrow: 'Tijuana, Baja California', l1: 'Conoce Tijuana', l2: 'desde <em>otro nivel.</em>', ms: 13000 },
-  { eyebrow: 'Torres y desarrollos', l1: 'El nuevo horizonte', l2: 'de <em>Tijuana.</em>', ms: 8000 },
-  { eyebrow: 'Preventas e inversión', l1: 'Invierte donde', l2: 'la ciudad <em>crece.</em>', ms: 8000 }
+  { eyebrow: 'Torres y desarrollos', l1: 'El nuevo horizonte', l2: 'de <em>Tijuana.</em>', ms: 8000, credit: 'Foto: Urbaner44 / Wikimedia Commons · CC BY-SA 4.0' },
+  { eyebrow: 'Bulevar Agua Caliente', l1: 'Invierte donde', l2: 'la ciudad <em>crece.</em>', ms: 8000, credit: 'Foto: Urbaner44 / Wikimedia Commons · CC BY-SA 4.0' }
 ];
-let sceneIdx = 0, sceneTimer, scenesOn = false, heroInView = true, heroMapCtl = () => {}, swapT;
+let customHero = false, sceneIdx = 0, sceneTimer, scenesOn = false, heroInView = true, heroMapCtl = () => {}, swapT;
 function scheduleScene() {
   clearTimeout(sceneTimer);
   const dots = $('#heroDots'); dots.classList.remove('is-run');
@@ -427,6 +427,7 @@ function setScene(i) {
   sceneIdx = i;
   $$('#heroDots button').forEach(b => b.classList.toggle('is-on', +b.dataset.i === i));
   $('#heroAlt').style.visibility = i === 0 ? '' : 'hidden';
+  const cr = $('#heroCredit'); cr.textContent = (!customHero && sc.credit) || ''; cr.hidden = !cr.textContent;
   const title = $('#heroTitle'), spans = $$('.line>span', title);
   clearTimeout(swapT); title.classList.remove('is-pre'); title.classList.add('is-out');
   swapT = setTimeout(() => {
