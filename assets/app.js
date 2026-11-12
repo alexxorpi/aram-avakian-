@@ -9,6 +9,9 @@
 // Vacío = el sitio usa el Excel local de la carpeta «datos».
 const FUENTE = 'https://script.google.com/macros/s/AKfycbyhGSfFcSMqT1Snrr73Qe_KukNqW5hrfk3xFzDAXYCG6ELqaeomdBuIpoiLRL6NdaMD0w/exec';
 const EXCEL = 'datos/propiedades.xlsx';
+// Ubicaciones de respaldo por ID, para filas que aún no tienen coordenadas en la hoja.
+// Lo que se escriba en la columna «Ubicación» de la hoja siempre tiene prioridad.
+const UBICACIONES = { 'AV-001': '32.5167, -117.0147' };   // The Landmark, Blvd. Agua Caliente y Lerdo de Tejada
 const IMG_DIR = 'imagenes/';
 const TIJUANA = [-117.0382, 32.5149];           // [lng, lat]
 const HERO_END = { center: [-117.0218, 32.5262], zoom: 14.7, pitch: 60, bearing: 24 };
@@ -119,6 +122,7 @@ function parseSheets(wb, fotos) {
   }));
   const cfg = {};
   sheetRows(wb, 'configuracion').forEach(r => { const k = norm(field(r, 'clave')); if (k) cfg[k] = String(field(r, 'valor')).trim(); });
+  [...props, ...builds].forEach(p => { if (!p.loc) p.loc = parseLoc(UBICACIONES[p.id.trim().toUpperCase()]); });
   [...props, ...builds].forEach(p => { p.imgs = pics(field(p.raw, 'imagenes'), p); delete p.raw; });
   if (!cfg['imagenes de portada'] && folder('PORTADA').length) cfg['imagenes de portada'] = folder('PORTADA').join(',');
   return { props, builds, cfg };
