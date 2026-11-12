@@ -35,7 +35,8 @@ function construir() {
   libro.getSheets().forEach(function (h) {
     var nombre = h.getName();
     if (/^instrucciones/i.test(nombre)) return;
-    hojas[nombre] = h.getDataRange().getValues().map(function (fila) {
+    if (/^(propiedades|desarrollos)/i.test(nombre)) { try { ubicar(h); } catch (e) { /* sin mapa, el resto sigue */ } }
+    hojas[nombre] =h.getDataRange().getValues().map(function (fila) {
       return fila.map(function (v) { return v instanceof Date ? Utilities.formatDate(v, libro.getSpreadsheetTimeZone(), 'dd/MM/yyyy') : v; });
     });
   });
@@ -66,6 +67,38 @@ function construir() {
     }
   }
   return { actualizado: new Date().toISOString(), hojas: hojas, fotos: fotos, sinPermiso: sinPermiso };
+}
+
+/**
+ * Si una fila tiene «Dirección» pero no «Ubicación», busca la dirección en Google Maps
+ * y escribe las coordenadas en la hoja. Así basta con escribir la dirección.
+ */
+function ubicar(hoja) {
+  var datos = hoja.getDataRange().getValues();
+  if (datos.length < 2) return;
+  var cU = -1, cD = -1;
+  datos[0].forEach(function (t, i) {
+    t = String(t).toLowerCase();
+    if (t.indexOf('ubicaci') === 0) cU = i;
+    if (t.indexOf('direcci') === 0) cD = i;
+  });
+  if (cU < 0 || cD < 0) return;
+  var cache = CacheService.getScriptCache();
+  for (var f = 1; f < datos.length; f++) {
+    var dir = String(datos[f][cD]).trim();
+    if (!dir || String(datos[f][cU]).trim()) continue;
+    var clave = 'sinmapa:' + Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, dir));
+    if (cache.get(clave)) continue;                       // ya se intentó hace poco y no se encontró
+    var texto = (/tijuana/i.test(dir) ? dir : dir + ', Tijuana, Baja California') + ', México';
+    var r = Maps.newGeocoder().setRegion('mx').setLanguage('es').geocode(texto);
+    if (r.status === 'OK' && r.results.length) {
+      var p = r.results[0].geometry.location;
+      hoja.getRange(f + 1, cU + 1).setValue(p.lat.toFixed(6) + ', ' + p.lng.toFixed(6));
+    } else {
+      cache.put(clave, '1', 21600);                       // reintenta en 6 horas
+    }
+  }
+  SpreadsheetApp.flush();
 }
 
 /** Ejecuta esta función desde el editor para revisar qué recibirá el sitio. */
