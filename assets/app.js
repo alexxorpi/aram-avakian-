@@ -7,7 +7,7 @@
 
 // Dirección de la aplicación web de Apps Script que entrega la hoja de Drive y sus fotos.
 // Vacío = el sitio usa el Excel local de la carpeta «datos».
-const FUENTE = 'https://script.google.com/macros/s/AKfycbyhGSfFcSMqT1Snrr73Qe_KukNqW5hrfk3xFzDAXYCG6ELqaeomdBuIpoiLRL6NdaMD0w/exec';
+const FUENTE = 'https://script.google.com/macros/s/AKfycby2pUkM5KCagiPZWLdHrcZzXT6AiKU01drheoxbA2L3tXIdFreXCawTcwMVJQsLybX0xQ/exec';
 const EXCEL = 'datos/propiedades.xlsx';
 // Ubicaciones de respaldo por ID, para filas que aún no tienen coordenadas en la hoja.
 // Lo que se escriba en la columna «Ubicación» de la hoja siempre tiene prioridad.
