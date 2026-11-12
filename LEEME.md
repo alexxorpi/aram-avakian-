@@ -56,3 +56,13 @@ Si tienes una toma de dron, súbela a `assets/` y escribe su nombre en **Configu
 - Imagen satelital: Esri World Imagery. Para uso comercial en producción revisa sus términos
   (puede requerir una cuenta gratuita de ArcGIS o cambiar a otro proveedor como MapTiler o Mapbox).
 - Las fotos de `imagenes/` son de muestra (Unsplash) y las propiedades con clave `EJ-`/`DES-` son ficticias.
+
+## Actualización automática desde Google Drive
+
+El sitio puede leer la hoja de Google «Propiedades Avakian» en vivo, sin subir nada al hosting:
+
+1. Instala `herramientas/conector-drive.gs` en la hoja (los pasos están al inicio del archivo).
+2. Pega la URL de la aplicación web en la constante `FUENTE` de `assets/app.js`.
+
+Desde ese momento cada fila de la hoja y cada foto en `Fotos/<ID>` aparece en el sitio en uno o dos minutos.
+Si la hoja no responde, el sitio usa como respaldo `datos/propiedades.xlsx`.

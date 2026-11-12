@@ -1,10 +1,13 @@
 /* =========================================================
    AVAKIAN · Grupo Inmobiliario
-   Lee datos/propiedades.xlsx y construye el sitio.
+   Lee la hoja de Google Drive (FUENTE) o, si no hay, datos/propiedades.xlsx.
    ========================================================= */
 (() => {
 'use strict';
 
+// Dirección de la aplicación web de Apps Script que entrega la hoja de Drive y sus fotos.
+// Vacío = el sitio usa el Excel local de la carpeta «datos».
+const FUENTE = '';
 const EXCEL = 'datos/propiedades.xlsx';
 const IMG_DIR = 'imagenes/';
 const TIJUANA = [-117.0382, 32.5149];           // [lng, lat]
@@ -24,7 +27,7 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- utilidades ---------- */
-const norm = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const num = v => { if (typeof v === 'number') return v; const n = parseFloat(String(v).replace(/[^0-9.\-]/g, '')); return isFinite(n) ? n : null; };
 const list = v => String(v ?? '').split(/[,\n;]+/).map(s => s.trim()).filter(Boolean);
@@ -47,7 +50,18 @@ function parseLoc(v) {
   if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
   return [lng, lat];
 }
-const imgSrc = s => /^(https?:)?\/\//i.test(s) || s.startsWith('/') || s.startsWith('data:') ? s : IMG_DIR + encodeURI(s);
+const driveImg = id => `https://drive.google.com/thumbnail?id=${id}&sz=w1600`;
+const imgSrc = s => {
+  const d = s.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:[\w=&]*&)?id=|thumbnail\?id=)([\w-]{20,})/);
+  if (d) return driveImg(d[1]);
+  return /^(https?:)?\/\//i.test(s) || s.startsWith('/') || s.startsWith('data:') ? s : IMG_DIR + encodeURI(s);
+};
+// Si la miniatura de Drive falla se intenta el servidor alterno de Google y, al final, el marcador.
+window.__imgErr = im => {
+  const d = (im.currentSrc || im.src).match(/drive\.google\.com\/thumbnail\?id=([\w-]+)/);
+  if (d && !im.dataset.alt) { im.dataset.alt = 1; im.src = `https://lh3.googleusercontent.com/d/${d[1]}=w1600`; return; }
+  im.onerror = null; im.src = PLACEHOLDER;
+};
 const PLACEHOLDER = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#E7DFD2"/><text x="200" y="158" text-anchor="middle" font-family="Arial" font-weight="700" font-size="26" letter-spacing="2" fill="#B9AE9C">AVAKIAN</text></svg>');
 
 function money(n, cur) {
@@ -61,15 +75,21 @@ function moneyShort(n) {
   return '$' + n;
 }
 
-/* ---------- lectura del Excel ---------- */
-function sheetRows(wb, name) {
-  const sn = wb.SheetNames.find(n => norm(n).startsWith(name)); if (!sn) return [];
-  return XLSX.utils.sheet_to_json(wb.Sheets[sn], { defval: '' }).map(r => {
-    const o = {}; for (const k in r) o[norm(k)] = typeof r[k] === 'string' ? r[k].trim() : r[k]; return o;
-  });
+/* ---------- lectura de datos (hoja de Drive o Excel) ---------- */
+function sheetRows(sheets, name) {
+  const sn = Object.keys(sheets).find(n => norm(n).startsWith(name)); if (!sn) return [];
+  const [head, ...rows] = sheets[sn] || []; if (!head) return [];
+  const keys = head.map(norm);
+  return rows.map(r => { const o = {}; keys.forEach((k, i) => { if (k) { const v = r[i]; o[k] = typeof v === 'string' ? v.trim() : (v ?? ''); } }); return o; });
 }
 function parseWorkbook(buf) {
-  const wb = XLSX.read(buf, { type: 'array' });
+  const wb = XLSX.read(buf, { type: 'array' }), sheets = {};
+  wb.SheetNames.forEach(n => { sheets[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, defval: '' }); });
+  return parseSheets(sheets, {});
+}
+function parseSheets(wb, fotos) {
+  const folder = id => (fotos[String(id).trim().toUpperCase()] || []).map(driveImg);
+  const pics = (v, id) => { const l = list(v).map(imgSrc); return l.length ? l : folder(id); };
   const props = sheetRows(wb, 'propiedades').filter(r => field(r, 'titulo') && yes(field(r, 'publicar'))).map((r, i) => {
     const op = norm(field(r, 'operacion')).startsWith('r') ? 'renta' : 'venta';
     const estatus = String(field(r, 'estatus') || 'Disponible');
@@ -79,18 +99,20 @@ function parseWorkbook(buf) {
       zone: String(field(r, 'zona')), address: String(field(r, 'direccion')), loc: parseLoc(field(r, 'ubicacion')),
       beds: num(field(r, 'recamaras')), baths: num(field(r, 'banos')), park: num(field(r, 'estacionamientos')),
       m2c: num(field(r, 'construccion')), m2t: num(field(r, 'terreno')), desc: String(field(r, 'descripcion')),
-      amen: list(field(r, 'amenidades')), imgs: list(field(r, 'imagenes')).map(imgSrc), video: safeUrl(field(r, 'video')),
-      feat: norm(field(r, 'destacada')).startsWith('s'), estatus, off: /vendid|rentad/.test(norm(estatus))
+      amen: list(field(r, 'amenidades')), imgs: [], video: safeUrl(field(r, 'video')),
+      feat: norm(field(r, 'destacada')).startsWith('s'), estatus, off: /vendid|rentad/.test(norm(estatus)), raw: r
     };
   });
   const builds = sheetRows(wb, 'desarrollos').filter(r => field(r, 'nombre') && yes(field(r, 'publicar'))).map((r, i) => ({
     kind: 'build', id: String(field(r, 'id') || 'D' + (i + 1)), title: String(field(r, 'nombre')), etapa: String(field(r, 'etapa') || 'Desarrollo'),
     avance: num(field(r, 'avance')), entrega: String(field(r, 'entrega')), zone: String(field(r, 'zona')), loc: parseLoc(field(r, 'ubicacion')),
     units: num(field(r, 'unidades')), price: num(field(r, 'precio')), cur: String(field(r, 'moneda') || 'MXN').toUpperCase(),
-    desc: String(field(r, 'descripcion')), amen: list(field(r, 'amenidades')), imgs: list(field(r, 'imagenes')).map(imgSrc), brochure: safeUrl(field(r, 'brochure'))
+    desc: String(field(r, 'descripcion')), amen: list(field(r, 'amenidades')), imgs: [], raw: r, brochure: safeUrl(field(r, 'brochure'))
   }));
   const cfg = {};
   sheetRows(wb, 'configuracion').forEach(r => { const k = norm(field(r, 'clave')); if (k) cfg[k] = String(field(r, 'valor')).trim(); });
+  [...props, ...builds].forEach(p => { p.imgs = pics(field(p.raw, 'imagenes'), p.id); delete p.raw; });
+  if (!cfg['imagenes de portada'] && folder('PORTADA').length) cfg['imagenes de portada'] = folder('PORTADA').join(',');
   return { props, builds, cfg };
 }
 
@@ -107,7 +129,7 @@ const specsHtml = p => [
   p.m2c ? `<span><b>${p.m2c.toLocaleString('es-MX')}</b> m²</span>` : (p.m2t ? `<span><b>${p.m2t.toLocaleString('es-MX')}</b> m² terreno</span>` : '')
 ].join('');
 const cover = p => p.imgs[0] || PLACEHOLDER;
-const img = (src, alt, eager) => `<img src="${esc(src)}" alt="${esc(alt)}" ${eager ? '' : 'loading="lazy"'} onerror="this.onerror=null;this.src='${PLACEHOLDER}'">`;
+const img = (src, alt, eager) => `<img src="${esc(src)}" alt="${esc(alt)}" ${eager ? '' : 'loading="lazy"'} onerror="__imgErr(this)">`;
 
 /* ---------- render ---------- */
 function applyConfig() {
@@ -179,7 +201,7 @@ function renderCards() {
         <p class="card__price">${priceLabel(p)}</p>
         <p class="specs">${specsHtml(p)}</p>
       </div>
-    </button>`).join('') : '<p class="empty">No hay propiedades con esos filtros. Prueba quitando alguno.</p>';
+    </button>`).join('') : `<p class="empty">${DATA.props.length ? 'No hay propiedades con esos filtros. Prueba quitando alguno.' : 'Muy pronto publicaremos aquí nuestras propiedades.'}</p>`;
   syncMarkers(r);
 }
 
@@ -513,12 +535,21 @@ function intro() {
 async function boot() {
   intro();
   observeReveals();
-  try {
+  let ok = false;
+  if (FUENTE) {
+    const use = j => { DATA = parseSheets(j.hojas, j.fotos || {}); ok = true; };
+    try { const c = JSON.parse(localStorage.getItem('avk-datos')); if (c && c.hojas) { use(c); renderAll(); } } catch (e) {}
+    try {
+      const j = await (await fetch(FUENTE, { redirect: 'follow' })).json();
+      if (j && j.hojas) { use(j); try { localStorage.setItem('avk-datos', JSON.stringify(j)); } catch (e) {} }
+    } catch (e) {}
+  }
+  if (!ok) try {
     const r = await fetch(EXCEL + '?v=' + Date.now(), { cache: 'no-store' });
     if (!r.ok) throw new Error(r.status);
     DATA = parseWorkbook(await r.arrayBuffer());
   } catch (e) {
-    $('#cards').innerHTML = `<p class="empty">No se pudo leer <b>${EXCEL}</b>. ${location.protocol === 'file:' ? 'Abre el sitio desde un servidor o hosting (no con doble clic), o arrastra el Excel sobre esta página para verlo.' : 'Revisa que el archivo esté en la carpeta «datos».'}</p>`;
+    $('#cards').innerHTML = `<p class="empty">No se pudieron cargar las propiedades. ${location.protocol === 'file:' ? 'Abre el sitio desde un servidor o hosting (no con doble clic).' : 'Intenta recargar la página.'}</p>`;
   }
   renderAll();
   // el mapa se crea cuando la sección se acerca a la pantalla
