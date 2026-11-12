@@ -11,7 +11,7 @@ const FUENTE = 'https://script.google.com/macros/s/AKfycbyhGSfFcSMqT1Snrr73Qe_Ku
 const EXCEL = 'datos/propiedades.xlsx';
 // Ubicaciones de respaldo por ID, para filas que aún no tienen coordenadas en la hoja.
 // Lo que se escriba en la columna «Ubicación» de la hoja siempre tiene prioridad.
-const UBICACIONES = { 'AV-001': '32.5167, -117.0147' };   // The Landmark, Blvd. Agua Caliente y Lerdo de Tejada
+const UBICACIONES = { 'AV-001': '32.5160725, -117.0155579' };   // The Landmark, Blvd. Agua Caliente y Lerdo de Tejada
 const IMG_DIR = 'imagenes/';
 const TIJUANA = [-117.0382, 32.5149];           // [lng, lat]
 const HERO_END = { center: [-117.0218, 32.5262], zoom: 14.7, pitch: 60, bearing: 24 };
@@ -94,7 +94,13 @@ function parseSheets(wb, fotos) {
   // Las carpetas de fotos se buscan sin distinguir mayúsculas, acentos ni espacios de más.
   const byName = {}; Object.keys(fotos).forEach(k => { byName[norm(k)] = fotos[k]; });
   const folder = (...names) => { for (const n of names) { const f = n && byName[norm(n)]; if (f && f.length) return f.map(driveImg); } return []; };
-  const pics = (v, p) => { const l = list(v).filter(x => /^(https?:)?\/\/|^\/|\.(jpe?g|png|webp|gif|avif)$/i.test(x)).map(imgSrc); return l.length ? l : folder(field(p.raw, 'carpeta'), p.id, p.title); };
+  // «Portada»: número de la foto de la carpeta que va primero. (También acepta nombres de archivo o links.)
+  const pics = (v, p) => {
+    const l = list(v).filter(x => /^(https?:)?\/\/|^\/|\.(jpe?g|png|webp|gif|avif)$/i.test(x)).map(imgSrc);
+    if (l.length) return l;
+    const f = folder(field(p.raw, 'carpeta'), p.id, p.title), n = parseInt(v, 10);
+    return n > 1 && n <= f.length ? [f[n - 1], ...f.slice(0, n - 1), ...f.slice(n)] : f;
+  };
   const props = sheetRows(wb, 'propiedades').filter(r => field(r, 'titulo') && yes(field(r, 'publicar'))).map((r, i) => {
     const op = norm(field(r, 'operacion')).startsWith('r') ? 'renta' : 'venta';
     const estatus = String(field(r, 'estatus') || 'Disponible');
@@ -124,7 +130,7 @@ function parseSheets(wb, fotos) {
   const cfg = {};
   sheetRows(wb, 'configuracion').forEach(r => { const k = norm(field(r, 'clave')); if (k) cfg[k] = String(field(r, 'valor')).trim(); });
   [...props, ...builds].forEach(p => { if (!p.loc) p.loc = parseLoc(UBICACIONES[p.id.trim().toUpperCase()]); });
-  [...props, ...builds].forEach(p => { p.imgs = pics(field(p.raw, 'imagenes'), p); delete p.raw; });
+  [...props, ...builds].forEach(p => { p.imgs = pics(field(p.raw, 'portada') || field(p.raw, 'imagenes'), p); delete p.raw; });
   if (!cfg['imagenes de portada'] && folder('PORTADA').length) cfg['imagenes de portada'] = folder('PORTADA').join(',');
   return { props, builds, cfg };
 }

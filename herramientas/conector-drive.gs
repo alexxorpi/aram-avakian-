@@ -32,10 +32,12 @@ function doGet() {
 function construir() {
   var libro = SpreadsheetApp.getActiveSpreadsheet();
   var hojas = {};
+  var avisos = [];
+  try { migrar(libro); } catch (e) { avisos.push('migrar: ' + e); }
   libro.getSheets().forEach(function (h) {
     var nombre = h.getName();
     if (/^instrucciones/i.test(nombre)) return;
-    if (/^(propiedades|desarrollos)/i.test(nombre)) { try { ubicar(h); } catch (e) { /* sin mapa, el resto sigue */ } }
+    if (/^(propiedades|desarrollos)/i.test(nombre)) { try { ubicar(h, avisos); } catch (e) { avisos.push('ubicar ' + nombre + ': ' + e); } }
     hojas[nombre] =h.getDataRange().getValues().map(function (fila) {
       return fila.map(function (v) { return v instanceof Date ? Utilities.formatDate(v, libro.getSpreadsheetTimeZone(), 'dd/MM/yyyy') : v; });
     });
@@ -66,7 +68,46 @@ function construir() {
       fotos[c.getName().trim()] = lista.map(function (x) { return x.id; });
     }
   }
-  return { actualizado: new Date().toISOString(), hojas: hojas, fotos: fotos, sinPermiso: sinPermiso };
+  return { version: 3, actualizado: new Date().toISOString(), hojas: hojas, fotos: fotos, sinPermiso: sinPermiso, avisos: avisos };
+}
+
+/**
+ * Ajusta la hoja una sola vez: encabezados más claros y las instrucciones al día.
+ * (El sitio reconoce tanto los encabezados viejos como los nuevos.)
+ */
+function migrar(libro) {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('hoja_v3')) return;
+  var nuevos = [
+    [/^im[aá]genes/i, 'Portada (número de la foto que va primero)',
+      'Escribe solo el número de la foto que quieres de portada, contando las fotos de la carpeta en orden de nombre (1 = la primera). Vacío = la primera.'],
+    [/^zona/i, 'Zona (colonia)', 'Solo la colonia o zona. Ej. Calete, Zona Río, Playas de Tijuana.'],
+    [/^direcci/i, 'Dirección (calle y número, en texto)', 'Texto que se muestra en la ficha. Ej. Lerdo de Tejada 13, Calete. Aquí NO va el link de Google Maps.'],
+    [/^ubicaci/i, 'Ubicación (link de Google Maps)',
+      'Pega aquí el link de Google Maps de la propiedad (botón Compartir → Copiar vínculo). En uno o dos minutos se convierte solo en coordenadas y aparece el pin. Si lo dejas vacío, se busca la Dirección.']
+  ];
+  libro.getSheets().forEach(function (h) {
+    if (!/^(propiedades|desarrollos)/i.test(h.getName()) || h.getLastColumn() < 1) return;
+    var fila = h.getRange(1, 1, 1, h.getLastColumn());
+    var enc = fila.getValues()[0];
+    enc.forEach(function (t, i) {
+      nuevos.forEach(function (n) {
+        if (n[0].test(String(t))) { var c = h.getRange(1, i + 1); c.setValue(n[1]); c.setNote(n[2]); }
+      });
+    });
+  });
+  var ins = libro.getSheets().filter(function (h) { return /^instrucciones/i.test(h.getName()); })[0];
+  if (ins && ins.getLastRow() > 0) {
+    var col = ins.getRange(1, 1, ins.getLastRow(), 1);
+    var textos = col.getValues().map(function (r) {
+      var t = String(r[0]);
+      if (/^3\.\s+UBICACI/i.test(t)) return ['3.  UBICACIÓN: en Google Maps abre la propiedad, toca «Compartir» y copia el vínculo. Pégalo en la columna «Ubicación». En uno o dos minutos se convierte solo en coordenadas y aparece el pin en el mapa. En «Dirección» escribe la calle y el número en texto, y en «Zona» solo la colonia.'];
+      if (/^4\.\s+FOTOS/i.test(t)) return ['4.  FOTOS: en la carpeta de Drive «aram avakian» crea una carpeta para la propiedad y sube ahí las fotos. Escribe el nombre de esa carpeta en la última columna, «Carpeta de fotos». En «Portada» escribe el número de la foto que quieres que salga primero (1 = la primera por nombre).'];
+      return [t];
+    });
+    col.setValues(textos);
+  }
+  props.setProperty('hoja_v3', '1');
 }
 
 /**
@@ -95,7 +136,7 @@ function coordsDeLink(url) {
   return '';
 }
 
-function ubicar(hoja) {
+function ubicar(hoja, avisos) {
   var datos = hoja.getDataRange().getValues();
   if (datos.length < 2) return;
   var cU = -1, cD = -1;
@@ -109,14 +150,15 @@ function ubicar(hoja) {
   for (var f = 1; f < datos.length; f++) {
     var ubi = String(datos[f][cU]).trim();
     var dir = cD < 0 ? '' : String(datos[f][cD]).trim();
+    if (!ubi && /^https?:\/\//i.test(dir)) ubi = dir;       // el link quedó en «Dirección»
     var esLink = /^https?:\/\//i.test(ubi);
     if (ubi && !esLink) continue;                         // ya tiene coordenadas
     var origen = esLink ? ubi : dir;
     if (!origen) continue;
-    var clave = 'sinmapa:' + Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, origen));
+    var clave = 'sinmapa3:' + Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, origen));
     if (cache.get(clave)) continue;                       // ya se intentó hace poco y no se encontró
     var coords = '';
-    try { if (esLink) coords = coordsDeLink(ubi); } catch (e) {}
+    try { if (esLink) coords = coordsDeLink(ubi); } catch (e) { avisos.push('link fila ' + (f + 1) + ': ' + e); }
     if (!coords && dir && !/^https?:/i.test(dir)) {
       try {
         var texto = (/tijuana/i.test(dir) ? dir : dir + ', Tijuana, Baja California') + ', México';
@@ -125,14 +167,15 @@ function ubicar(hoja) {
           var p = r.results[0].geometry.location;
           coords = p.lat.toFixed(6) + ', ' + p.lng.toFixed(6);
         }
-      } catch (e) {}
+      } catch (e) { avisos.push('direccion fila ' + (f + 1) + ': ' + e); }
     }
     if (coords) {
       var celda = hoja.getRange(f + 1, cU + 1);
       if (esLink) celda.setNote(ubi);
       celda.setValue(coords);
     } else {
-      cache.put(clave, '1', 21600);                       // reintenta en 6 horas
+      avisos.push('sin ubicacion fila ' + (f + 1));
+      cache.put(clave, '1', 600);                         // reintenta en 10 minutos
     }
   }
   SpreadsheetApp.flush();
@@ -143,5 +186,6 @@ function probar() {
   var d = construir();
   Logger.log('Hojas: ' + Object.keys(d.hojas).join(', '));
   Object.keys(d.fotos).forEach(function (k) { Logger.log('Carpeta «' + k + '»: ' + d.fotos[k].length + ' fotos'); });
+  Logger.log('Avisos: ' + JSON.stringify(d.avisos));
   if (d.sinPermiso.length) Logger.log('NO se pudieron compartir públicamente: ' + d.sinPermiso.join(', '));
 }
