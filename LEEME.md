@@ -66,3 +66,9 @@ El sitio puede leer la hoja de Google «Propiedades Avakian» en vivo, sin subir
 
 Desde ese momento cada fila de la hoja y cada foto en la carpeta de la propiedad aparece en el sitio en uno o dos minutos.
 Si la hoja no responde, el sitio usa como respaldo `datos/propiedades.xlsx`.
+
+### Links de Google Maps
+
+En la columna «Ubicación» se puede pegar el link de Google Maps (también el corto de «Compartir»).
+Una tarea de GitHub (`.github/workflows/ubicaciones.yml`) revisa la hoja cada 15 minutos, convierte los
+links nuevos en coordenadas y las guarda en `datos/ubicaciones.json`, que es lo que usa el mapa del sitio.

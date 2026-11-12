@@ -1,0 +1,37 @@
+name: Ubicaciones de Google Maps
+
+# Convierte los links de Google Maps de la hoja en coordenadas para el mapa del sitio.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["herramientas/resolver-ubicaciones.py", ".github/workflows/ubicaciones.yml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ubicaciones
+  cancel-in-progress: false
+
+jobs:
+  resolver:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Convertir links en coordenadas
+        run: python3 herramientas/resolver-ubicaciones.py
+      - name: Publicar cambios
+        run: |
+          if [ -n "$(git status --porcelain datos/ubicaciones.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add datos/ubicaciones.json
+            git commit -m "Actualizar ubicaciones desde Google Maps"
+            git push origin HEAD:main
+            git push origin HEAD:gh-pages
+          fi

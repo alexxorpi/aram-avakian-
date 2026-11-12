@@ -11,7 +11,7 @@ const FUENTE = 'https://script.google.com/macros/s/AKfycby2pUkM5KCagiPZWLdHrcZzX
 const EXCEL = 'datos/propiedades.xlsx';
 // Ubicaciones de respaldo por ID, para filas que aún no tienen coordenadas en la hoja.
 // Lo que se escriba en la columna «Ubicación» de la hoja siempre tiene prioridad.
-const UBICACIONES = { 'AV-001': '32.5160725, -117.0155579' };   // The Landmark, Blvd. Agua Caliente y Lerdo de Tejada
+const UBICACIONES = {};
 const IMG_DIR = 'imagenes/';
 const TIJUANA = [-117.0382, 32.5149];           // [lng, lat]
 const HERO_END = { center: [-117.0218, 32.5262], zoom: 14.7, pitch: 60, bearing: 24 };
@@ -113,7 +113,7 @@ function parseSheets(wb, fotos) {
       kind: 'prop', id: String(field(r, 'id') || 'P' + (i + 1)), title: String(field(r, 'titulo')), op,
       tipo: String(field(r, 'tipo') || (tipoTxt ? tipoTxt[0] : 'Propiedad')), price: num(field(r, 'precio')), cur: String(field(r, 'moneda') || 'MXN').toUpperCase(),
       zone: String(field(r, 'zona')), address: safeUrl(field(r, 'direccion')) ? '' : String(field(r, 'direccion')),
-      loc: parseLoc(field(r, 'ubicacion')) || parseLoc(field(r, 'direccion')),
+      loc: linkLoc(field(r, 'ubicacion')) || linkLoc(field(r, 'direccion')),
       beds: num(field(r, 'recamaras')) ?? guess(/\b(\d{1,2}) (?:recamaras?|habitaciones|habitacion|cuartos)\b/),
       baths: num(field(r, 'banos')) ?? guess(/\b(\d{1,2}) banos?\b/), park: num(field(r, 'estacionamientos')),
       m2c: num(field(r, 'construccion')), m2t: num(field(r, 'terreno')), desc: String(field(r, 'descripcion')),
@@ -123,7 +123,7 @@ function parseSheets(wb, fotos) {
   });
   const builds = sheetRows(wb, 'desarrollos').filter(r => field(r, 'nombre') && yes(field(r, 'publicar'))).map((r, i) => ({
     kind: 'build', id: String(field(r, 'id') || 'D' + (i + 1)), title: String(field(r, 'nombre')), etapa: String(field(r, 'etapa') || 'Desarrollo'),
-    avance: num(field(r, 'avance')), entrega: String(field(r, 'entrega')), zone: String(field(r, 'zona')), loc: parseLoc(field(r, 'ubicacion')),
+    avance: num(field(r, 'avance')), entrega: String(field(r, 'entrega')), zone: String(field(r, 'zona')), loc: linkLoc(field(r, 'ubicacion')),
     units: num(field(r, 'unidades')), price: num(field(r, 'precio')), cur: String(field(r, 'moneda') || 'MXN').toUpperCase(),
     desc: String(field(r, 'descripcion')), amen: list(field(r, 'amenidades')), imgs: [], raw: r, brochure: safeUrl(field(r, 'brochure'))
   }));
@@ -137,6 +137,8 @@ function parseSheets(wb, fotos) {
 
 /* ---------- estado ---------- */
 let DATA = { props: [], builds: [], cfg: {} };
+let LINKS = {};   // links de Google Maps ya convertidos a coordenadas (datos/ubicaciones.json)
+const linkLoc = v => parseLoc(v) || parseLoc(LINKS[String(v ?? '').trim()]);
 const F = { op: '', tipo: '', rec: 0, sort: '', q: '' };
 let map, markers = new Map(), popup, miniMap, useHeroVideo = () => {}, heroVideoSet = '';
 
@@ -558,6 +560,7 @@ function intro() {
 async function boot() {
   intro();
   observeReveals();
+  try { LINKS = await (await fetch('datos/ubicaciones.json?v=' + Date.now(), { cache: 'no-store' })).json(); } catch (e) {}
   let ok = false;
   if (FUENTE) {
     const use = j => { DATA = parseSheets(j.hojas, j.fotos || {}); ok = true; };
