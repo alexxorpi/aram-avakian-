@@ -95,11 +95,17 @@ function parseSheets(wb, fotos) {
   const props = sheetRows(wb, 'propiedades').filter(r => field(r, 'titulo') && yes(field(r, 'publicar'))).map((r, i) => {
     const op = norm(field(r, 'operacion')).startsWith('r') ? 'renta' : 'venta';
     const estatus = String(field(r, 'estatus') || 'Disponible');
+    // Si faltan columnas, se deducen del texto de la descripción (ej. «3 recámaras y 3 baños»).
+    const txt = norm(field(r, 'titulo') + ' ' + field(r, 'descripcion'));
+    const guess = re => { const m = txt.match(re); return m ? +m[1] : null; };
+    const tipoTxt = [['Departamento', /\b(departamento|depa|penthouse|loft)\b/], ['Casa', /\b(casa|residencia)\b/], ['Terreno', /\b(terreno|lote)\b/],
+      ['Oficina', /\boficinas?\b/], ['Local', /\blocal\b/], ['Bodega', /\bbodega\b/]].find(t => t[1].test(txt));
     return {
       kind: 'prop', id: String(field(r, 'id') || 'P' + (i + 1)), title: String(field(r, 'titulo')), op,
-      tipo: String(field(r, 'tipo') || 'Propiedad'), price: num(field(r, 'precio')), cur: String(field(r, 'moneda') || 'MXN').toUpperCase(),
+      tipo: String(field(r, 'tipo') || (tipoTxt ? tipoTxt[0] : 'Propiedad')), price: num(field(r, 'precio')), cur: String(field(r, 'moneda') || 'MXN').toUpperCase(),
       zone: String(field(r, 'zona')), address: String(field(r, 'direccion')), loc: parseLoc(field(r, 'ubicacion')),
-      beds: num(field(r, 'recamaras')), baths: num(field(r, 'banos')), park: num(field(r, 'estacionamientos')),
+      beds: num(field(r, 'recamaras')) ?? guess(/\b(\d{1,2}) (?:recamaras?|habitaciones|habitacion|cuartos)\b/),
+      baths: num(field(r, 'banos')) ?? guess(/\b(\d{1,2}) banos?\b/), park: num(field(r, 'estacionamientos')),
       m2c: num(field(r, 'construccion')), m2t: num(field(r, 'terreno')), desc: String(field(r, 'descripcion')),
       amen: list(field(r, 'amenidades')), imgs: [], video: safeUrl(field(r, 'video')),
       feat: norm(field(r, 'destacada')).startsWith('s'), estatus, off: /vendid|rentad/.test(norm(estatus)), raw: r
