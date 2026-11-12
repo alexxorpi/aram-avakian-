@@ -64,5 +64,5 @@ El sitio puede leer la hoja de Google «Propiedades Avakian» en vivo, sin subir
 1. Instala `herramientas/conector-drive.gs` en la hoja (los pasos están al inicio del archivo).
 2. Pega la URL de la aplicación web en la constante `FUENTE` de `assets/app.js`.
 
-Desde ese momento cada fila de la hoja y cada foto en `Fotos/<ID>` aparece en el sitio en uno o dos minutos.
+Desde ese momento cada fila de la hoja y cada foto en la carpeta de la propiedad aparece en el sitio en uno o dos minutos.
 Si la hoja no responde, el sitio usa como respaldo `datos/propiedades.xlsx`.

@@ -1,7 +1,7 @@
 /**
  * AVAKIAN · Conector Drive → sitio web
  *
- * Entrega al sitio el contenido de esta hoja y la lista de fotos de la carpeta «Fotos».
+ * Entrega al sitio el contenido de esta hoja y la lista de fotos de cada carpeta de propiedad.
  * Se instala UNA sola vez:
  *   1. En la hoja «Propiedades Avakian»: Extensiones → Apps Script.
  *   2. Borra lo que haya, pega este archivo completo y guarda.
@@ -9,14 +9,14 @@
  *      Ejecutar como: Yo.   Quién tiene acceso: Cualquier usuario.
  *   4. Autoriza los permisos y copia la «URL de la aplicación web».
  *
- * Estructura esperada en Drive (misma carpeta que la hoja):
- *   Fotos/
- *     PORTADA/      fotos de la portada del sitio
- *     AV-001/       fotos de la propiedad con ID AV-001
- *     DES-01/       fotos del desarrollo con ID DES-01
+ * Estructura esperada en Drive (la hoja vive dentro de la carpeta «aram avakian»):
+ *   aram avakian/
+ *     Propiedades Avakian     esta hoja
+ *     PORTADA/                fotos de la portada del sitio
+ *     landmark 630k/          fotos de una propiedad (una carpeta por propiedad)
+ * El nombre de cada carpeta se escribe en la columna «Carpeta de fotos» de su fila.
  */
 
-var CARPETA_FOTOS = 'Fotos';
 var SEGUNDOS_CACHE = 60;
 
 function doGet() {
@@ -40,38 +40,38 @@ function construir() {
     });
   });
 
+  // Cada subcarpeta de la carpeta donde vive esta hoja es una carpeta de fotos.
   var fotos = {};
+  var sinPermiso = [];
   var padres = DriveApp.getFileById(libro.getId()).getParents();
   if (padres.hasNext()) {
-    var raices = padres.next().getFoldersByName(CARPETA_FOTOS);
-    if (raices.hasNext()) {
-      var raiz = raices.next();
+    var carpetas = padres.next().getFolders();
+    while (carpetas.hasNext()) {
+      var c = carpetas.next();
       // Las fotos deben poder verse sin iniciar sesión para que el sitio las muestre.
+      // Solo se comparten las carpetas de fotos, nunca la hoja.
       try {
-        if (raiz.getSharingAccess() !== DriveApp.Access.ANYONE_WITH_LINK) {
-          raiz.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+        if (c.getSharingAccess() !== DriveApp.Access.ANYONE_WITH_LINK) {
+          c.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
         }
-      } catch (e) { /* la organización no permite compartir públicamente */ }
-      var carpetas = raiz.getFolders();
-      while (carpetas.hasNext()) {
-        var c = carpetas.next();
-        var lista = [];
-        var archivos = c.getFiles();
-        while (archivos.hasNext()) {
-          var a = archivos.next();
-          if (String(a.getMimeType()).indexOf('image/') === 0) lista.push({ n: a.getName(), id: a.getId() });
-        }
-        lista.sort(function (x, y) { return x.n.localeCompare(y.n, undefined, { numeric: true }); });
-        fotos[c.getName().trim().toUpperCase()] = lista.map(function (x) { return x.id; });
+      } catch (e) { sinPermiso.push(c.getName()); }
+      var lista = [];
+      var archivos = c.getFiles();
+      while (archivos.hasNext()) {
+        var a = archivos.next();
+        if (String(a.getMimeType()).indexOf('image/') === 0) lista.push({ n: a.getName(), id: a.getId() });
       }
+      lista.sort(function (x, y) { return x.n.localeCompare(y.n, undefined, { numeric: true }); });
+      fotos[c.getName().trim()] = lista.map(function (x) { return x.id; });
     }
   }
-  return { actualizado: new Date().toISOString(), hojas: hojas, fotos: fotos };
+  return { actualizado: new Date().toISOString(), hojas: hojas, fotos: fotos, sinPermiso: sinPermiso };
 }
 
 /** Ejecuta esta función desde el editor para revisar qué recibirá el sitio. */
 function probar() {
   var d = construir();
   Logger.log('Hojas: ' + Object.keys(d.hojas).join(', '));
-  Logger.log('Carpetas de fotos: ' + JSON.stringify(Object.keys(d.fotos)));
+  Object.keys(d.fotos).forEach(function (k) { Logger.log('Carpeta «' + k + '»: ' + d.fotos[k].length + ' fotos'); });
+  if (d.sinPermiso.length) Logger.log('NO se pudieron compartir públicamente: ' + d.sinPermiso.join(', '));
 }

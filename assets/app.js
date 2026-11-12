@@ -88,8 +88,10 @@ function parseWorkbook(buf) {
   return parseSheets(sheets, {});
 }
 function parseSheets(wb, fotos) {
-  const folder = id => (fotos[String(id).trim().toUpperCase()] || []).map(driveImg);
-  const pics = (v, id) => { const l = list(v).map(imgSrc); return l.length ? l : folder(id); };
+  // Las carpetas de fotos se buscan sin distinguir mayúsculas, acentos ni espacios de más.
+  const byName = {}; Object.keys(fotos).forEach(k => { byName[norm(k)] = fotos[k]; });
+  const folder = (...names) => { for (const n of names) { const f = n && byName[norm(n)]; if (f && f.length) return f.map(driveImg); } return []; };
+  const pics = (v, p) => { const l = list(v).map(imgSrc); return l.length ? l : folder(field(p.raw, 'carpeta'), p.id, p.title); };
   const props = sheetRows(wb, 'propiedades').filter(r => field(r, 'titulo') && yes(field(r, 'publicar'))).map((r, i) => {
     const op = norm(field(r, 'operacion')).startsWith('r') ? 'renta' : 'venta';
     const estatus = String(field(r, 'estatus') || 'Disponible');
@@ -111,7 +113,7 @@ function parseSheets(wb, fotos) {
   }));
   const cfg = {};
   sheetRows(wb, 'configuracion').forEach(r => { const k = norm(field(r, 'clave')); if (k) cfg[k] = String(field(r, 'valor')).trim(); });
-  [...props, ...builds].forEach(p => { p.imgs = pics(field(p.raw, 'imagenes'), p.id); delete p.raw; });
+  [...props, ...builds].forEach(p => { p.imgs = pics(field(p.raw, 'imagenes'), p); delete p.raw; });
   if (!cfg['imagenes de portada'] && folder('PORTADA').length) cfg['imagenes de portada'] = folder('PORTADA').join(',');
   return { props, builds, cfg };
 }
