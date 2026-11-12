@@ -94,7 +94,7 @@ function parseSheets(wb, fotos) {
   // Las carpetas de fotos se buscan sin distinguir mayúsculas, acentos ni espacios de más.
   const byName = {}; Object.keys(fotos).forEach(k => { byName[norm(k)] = fotos[k]; });
   const folder = (...names) => { for (const n of names) { const f = n && byName[norm(n)]; if (f && f.length) return f.map(driveImg); } return []; };
-  const pics = (v, p) => { const l = list(v).map(imgSrc); return l.length ? l : folder(field(p.raw, 'carpeta'), p.id, p.title); };
+  const pics = (v, p) => { const l = list(v).filter(x => /^(https?:)?\/\/|^\/|\.(jpe?g|png|webp|gif|avif)$/i.test(x)).map(imgSrc); return l.length ? l : folder(field(p.raw, 'carpeta'), p.id, p.title); };
   const props = sheetRows(wb, 'propiedades').filter(r => field(r, 'titulo') && yes(field(r, 'publicar'))).map((r, i) => {
     const op = norm(field(r, 'operacion')).startsWith('r') ? 'renta' : 'venta';
     const estatus = String(field(r, 'estatus') || 'Disponible');
@@ -106,7 +106,8 @@ function parseSheets(wb, fotos) {
     return {
       kind: 'prop', id: String(field(r, 'id') || 'P' + (i + 1)), title: String(field(r, 'titulo')), op,
       tipo: String(field(r, 'tipo') || (tipoTxt ? tipoTxt[0] : 'Propiedad')), price: num(field(r, 'precio')), cur: String(field(r, 'moneda') || 'MXN').toUpperCase(),
-      zone: String(field(r, 'zona')), address: String(field(r, 'direccion')), loc: parseLoc(field(r, 'ubicacion')),
+      zone: String(field(r, 'zona')), address: safeUrl(field(r, 'direccion')) ? '' : String(field(r, 'direccion')),
+      loc: parseLoc(field(r, 'ubicacion')) || parseLoc(field(r, 'direccion')),
       beds: num(field(r, 'recamaras')) ?? guess(/\b(\d{1,2}) (?:recamaras?|habitaciones|habitacion|cuartos)\b/),
       baths: num(field(r, 'banos')) ?? guess(/\b(\d{1,2}) banos?\b/), park: num(field(r, 'estacionamientos')),
       m2c: num(field(r, 'construccion')), m2t: num(field(r, 'terreno')), desc: String(field(r, 'descripcion')),
