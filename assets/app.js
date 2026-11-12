@@ -425,7 +425,11 @@ addEventListener('drop', async e => {
   catch (err) { toast('No se pudo leer el Excel.'); }
 });
 
-function renderAll() { applyConfig(); fillOptions(); renderFeatured(); renderBuilds(); renderCards(); if (map) syncMarkers(filtered()); }
+function renderAll() {
+  applyConfig(); fillOptions(); renderFeatured(); renderBuilds(); renderCards(); if (map) syncMarkers(filtered());
+  // los enlaces del menú a secciones vacías se ocultan
+  $$('#navLinks a').forEach(l => { const t = $(l.getAttribute('href')); l.hidden = !!(t && t.hidden); });
+}
 
 /* ---------- portada por escenas ---------- */
 const SCENES = [

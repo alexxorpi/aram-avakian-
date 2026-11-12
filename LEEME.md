@@ -55,7 +55,7 @@ Si tienes una toma de dron, súbela a `assets/` y escribe su nombre en **Configu
 - Mapa: MapLibre GL, OpenFreeMap / OpenStreetMap.
 - Imagen satelital: Esri World Imagery. Para uso comercial en producción revisa sus términos
   (puede requerir una cuenta gratuita de ArcGIS o cambiar a otro proveedor como MapTiler o Mapbox).
-- Las fotos de `imagenes/` son de muestra (Unsplash) y las propiedades con clave `EJ-`/`DES-` son ficticias.
+- Las fotos de portada de `imagenes/` son de Wikimedia Commons (ver «Portada»).
 
 ## Actualización automática desde Google Drive
 
