@@ -75,12 +75,17 @@ function construir() {
  *   - si está vacía pero hay «Dirección», busca la dirección en Google Maps.
  * El link original se conserva como nota de la celda.
  */
-var RE_COORDS = /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)|@(-?\d+\.\d+),(-?\d+\.\d+)|[?&](?:q|ll|query|center)=(-?\d+\.\d+)(?:,|%2C)(-?\d+\.\d+)/;
+var RE_COORDS = [/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/, /@(-?\d+\.\d+),(-?\d+\.\d+)/, /[?&](?:q|ll|query|center)=(-?\d+\.\d+)(?:,|%2C)(-?\d+\.\d+)/];
+
+function leerCoords(url) {
+  for (var i = 0; i < RE_COORDS.length; i++) { var m = url.match(RE_COORDS[i]); if (m) return m[1] + ', ' + m[2]; }
+  return '';
+}
 
 function coordsDeLink(url) {
   for (var i = 0; i < 5; i++) {
-    var m = url.match(RE_COORDS);
-    if (m) return (m[1] || m[3] || m[5]) + ', ' + (m[2] || m[4] || m[6]);
+    var c = leerCoords(url);
+    if (c) return c;
     var r = UrlFetchApp.fetch(url, { followRedirects: false, muteHttpExceptions: true });
     var cab = r.getHeaders();
     var sig = cab['Location'] || cab['location'];
