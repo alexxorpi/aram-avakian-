@@ -70,9 +70,26 @@ function construir() {
 }
 
 /**
- * Si una fila tiene «Dirección» pero no «Ubicación», busca la dirección en Google Maps
- * y escribe las coordenadas en la hoja. Así basta con escribir la dirección.
+ * Completa la columna «Ubicación» con coordenadas:
+ *   - si tiene un link de Google Maps (también los cortos de «Compartir»), lo convierte;
+ *   - si está vacía pero hay «Dirección», busca la dirección en Google Maps.
+ * El link original se conserva como nota de la celda.
  */
+var RE_COORDS = /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)|@(-?\d+\.\d+),(-?\d+\.\d+)|[?&](?:q|ll|query|center)=(-?\d+\.\d+)(?:,|%2C)(-?\d+\.\d+)/;
+
+function coordsDeLink(url) {
+  for (var i = 0; i < 5; i++) {
+    var m = url.match(RE_COORDS);
+    if (m) return (m[1] || m[3] || m[5]) + ', ' + (m[2] || m[4] || m[6]);
+    var r = UrlFetchApp.fetch(url, { followRedirects: false, muteHttpExceptions: true });
+    var cab = r.getHeaders();
+    var sig = cab['Location'] || cab['location'];
+    if (!sig) return '';
+    url = sig;
+  }
+  return '';
+}
+
 function ubicar(hoja) {
   var datos = hoja.getDataRange().getValues();
   if (datos.length < 2) return;
@@ -82,18 +99,33 @@ function ubicar(hoja) {
     if (t.indexOf('ubicaci') === 0) cU = i;
     if (t.indexOf('direcci') === 0) cD = i;
   });
-  if (cU < 0 || cD < 0) return;
+  if (cU < 0) return;
   var cache = CacheService.getScriptCache();
   for (var f = 1; f < datos.length; f++) {
-    var dir = String(datos[f][cD]).trim();
-    if (!dir || String(datos[f][cU]).trim()) continue;
-    var clave = 'sinmapa:' + Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, dir));
+    var ubi = String(datos[f][cU]).trim();
+    var dir = cD < 0 ? '' : String(datos[f][cD]).trim();
+    var esLink = /^https?:\/\//i.test(ubi);
+    if (ubi && !esLink) continue;                         // ya tiene coordenadas
+    var origen = esLink ? ubi : dir;
+    if (!origen) continue;
+    var clave = 'sinmapa:' + Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, origen));
     if (cache.get(clave)) continue;                       // ya se intentó hace poco y no se encontró
-    var texto = (/tijuana/i.test(dir) ? dir : dir + ', Tijuana, Baja California') + ', México';
-    var r = Maps.newGeocoder().setRegion('mx').setLanguage('es').geocode(texto);
-    if (r.status === 'OK' && r.results.length) {
-      var p = r.results[0].geometry.location;
-      hoja.getRange(f + 1, cU + 1).setValue(p.lat.toFixed(6) + ', ' + p.lng.toFixed(6));
+    var coords = '';
+    try { if (esLink) coords = coordsDeLink(ubi); } catch (e) {}
+    if (!coords && dir) {
+      try {
+        var texto = (/tijuana/i.test(dir) ? dir : dir + ', Tijuana, Baja California') + ', México';
+        var r = Maps.newGeocoder().setRegion('mx').setLanguage('es').geocode(texto);
+        if (r.status === 'OK' && r.results.length) {
+          var p = r.results[0].geometry.location;
+          coords = p.lat.toFixed(6) + ', ' + p.lng.toFixed(6);
+        }
+      } catch (e) {}
+    }
+    if (coords) {
+      var celda = hoja.getRange(f + 1, cU + 1);
+      if (esLink) celda.setNote(ubi);
+      celda.setValue(coords);
     } else {
       cache.put(clave, '1', 21600);                       // reintenta en 6 horas
     }
