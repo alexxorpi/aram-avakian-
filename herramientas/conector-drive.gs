@@ -117,7 +117,7 @@ function ubicar(hoja) {
     if (cache.get(clave)) continue;                       // ya se intentó hace poco y no se encontró
     var coords = '';
     try { if (esLink) coords = coordsDeLink(ubi); } catch (e) {}
-    if (!coords && dir) {
+    if (!coords && dir && !/^https?:/i.test(dir)) {
       try {
         var texto = (/tijuana/i.test(dir) ? dir : dir + ', Tijuana, Baja California') + ', México';
         var r = Maps.newGeocoder().setRegion('mx').setLanguage('es').geocode(texto);
